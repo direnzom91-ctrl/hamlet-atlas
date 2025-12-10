@@ -8,6 +8,7 @@
   "action": {
     "title": "Apri Atlas",
     "icon": "https://cdn-icons-png.flaticon.com/512/3300/3300388.png",
-    "popover": "index.html"
+    "popover": "./index.html"
   }
 }
+
