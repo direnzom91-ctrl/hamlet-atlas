@@ -5,14 +5,9 @@
   "description": "Database completo per la campagna Hamlet",
   "icon": "https://cdn-icons-png.flaticon.com/512/3300/3300388.png",
   "permissions": [],
-  "background_url": "index.html",
   "action": {
     "title": "Apri Atlas",
     "icon": "https://cdn-icons-png.flaticon.com/512/3300/3300388.png",
-    "popover": {
-      "width": 1000,
-      "height": 700,
-      "title": "Hamlet Database"
-    }
+    "popover": "index.html"
   }
 }
