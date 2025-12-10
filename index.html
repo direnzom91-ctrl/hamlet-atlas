@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAMLET: FRACTURED ATLAS (Complete)</title>
+    <style>
+        :root {
+            --bg-dark: #0f0f13;
+            --bg-panel: #1a1a24;
+            --accent: #7c4dff;
+            --accent-glow: #b388ff;
+            --text-main: #e0e0e0;
+            --text-muted: #95a5a6;
+            --border: #333344;
+            
+            /* Colors */
+            --c-npc: #7c4dff;
+            --c-loc: #5d4037;
+            --c-quest: #d32f2f;
+            --c-item: #0097a7;
+            --c-rule: #fbc02d;
+            --c-hero: #27ae60;
+            --c-map: #e91e63;
+            
+            --link: #4fc3f7;
+            --danger: #ff4444;
+            --success: #00c851;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: 260px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            z-index: 20;
+        }
+
+        .brand {
+            font-size: 1.4em; font-weight: bold; color: var(--accent-glow);
+            text-align: center; padding: 20px; border-bottom: 1px solid var(--border);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .nav-scroll { overflow-y: auto; flex: 1; padding: 10px; }
+
+        nav button, .custom-nav-btn {
+            background: none; border: none; color: var(--text-muted); width: 100%;
+            padding: 10px; text-align: left; cursor: pointer; font-size: 0.95em;
+            border-left: 4px solid transparent; margin-bottom: 2px; transition: 0.2s;
+            display: flex; align-items: center; gap: 10px; position: relative;
+        }
+        nav button:hover, nav button.active, .custom-nav-btn:hover, .custom-nav-btn.active {
+            background-color: #2c2c36; color: white; border-left: 4px solid var(--accent);
+        }
+        
+        .del-tab-btn {
+            position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+            color: #555; font-size: 0.8em; opacity: 0; transition: 0.2s;
+            padding: 5px; cursor: pointer;
+        }
+        .custom-nav-btn:hover .del-tab-btn { opacity: 1; }
+        .del-tab-btn:hover { color: var(--danger); font-weight: bold; }
+
+        .tools-panel { border-top: 1px solid var(--border); padding: 15px; background: #15151a; display:flex; flex-direction:column; gap:5px; }
+        .tool-btn { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; font-weight: bold; color: white; background: #333; }
+        .tool-btn:hover { background: #444; }
+        .btn-save { background: #2e7d32; border-color: #4caf50; }
+        .btn-load { background: #1565c0; border-color: #42a5f5; }
+        .btn-reset { background: #c62828; border-color: #ef5350; margin-top:10px;}
+
+        /* --- MAIN CONTENT --- */
+        main { flex: 1; padding: 20px; overflow-y: auto; position: relative; }
+        
+        section, .custom-section { display: none; animation: fadeIn 0.3s; height: 100%; }
+        section.active, .custom-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1 { border-bottom: 1px solid var(--border); padding-bottom: 10px; color: var(--accent-glow); margin-top:0; display:flex; justify-content:space-between; align-items:center; }
+        
+        /* --- CARDS & GRID --- */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; }
+        
+        .card {
+            background: var(--bg-panel); border: 1px solid var(--border);
+            border-radius: 6px; padding: 15px; margin-bottom: 10px; position: relative;
+            transition: 0.2s; border-left: 4px solid #555;
+        }
+        .clickable:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+        /* Quest Logic Styles */
+        .card.locked { opacity: 0.5; border-left-color: #555 !important; filter: grayscale(0.8); pointer-events: none; }
+        .card.locked::after { content: "🔒"; position: absolute; top: 10px; right: 10px; font-size: 1.5em; }
+        .card.completed { border-left-color: var(--success) !important; opacity: 0.7; }
+        .card.completed::after { content: "✅"; position: absolute; top: 10px; right: 10px; font-size: 1.5em; }
+
+        .tag { padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; text-transform: uppercase; margin-right: 5px; color: white; float:right; }
+        
+        /* Varianti Colore Card */
+        .card[data-type="npcs"] { border-left-color: var(--c-npc); }
+        .card[data-type="locs"] { border-left-color: var(--c-loc); }
+        .card[data-type="quests"] { border-left-color: var(--c-quest); }
+        .card[data-type="items"] { border-left-color: var(--c-item); }
+        .card[data-type="rules"] { border-left-color: var(--c-rule); }
+        .card[data-type="heroes"] { border-left-color: var(--c-hero); }
+        .card[data-type="maps"] { border-left-color: var(--c-map); }
+
+        .field-input { width: 100%; background: #111; border: 1px solid #444; color: #ddd; padding: 8px; border-radius: 4px; font-family: inherit; margin-bottom:10px; box-sizing: border-box; }
+        textarea.field-input { resize: vertical; min-height: 100px;}
+        
+        .form-label { display: block; color: var(--accent); font-size: 0.75em; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
+
+        .add-btn { background: var(--accent); border: none; color: white; padding: 5px 15px; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight:bold; }
+        .del-btn { float: right; background: none; border: none; cursor: pointer; opacity: 0.5; color: #fff; z-index: 10; position: relative;}
+        .del-btn:hover { opacity: 1; color: var(--danger); }
+
+        /* --- PT TRACKER & MORALITY STYLES --- */
+        .pt-controls { display: flex; align-items: center; gap: 5px; margin-top: 10px; background: #111; padding: 5px; border-radius: 4px; }
+        .pt-btn { width: 25px; height: 25px; background: #333; color: white; border: 1px solid #555; cursor: pointer; border-radius: 3px; }
+        .pt-val { font-weight: bold; padding: 0 10px; min-width: 30px; text-align: center; }
+        .pt-bar { height: 4px; background: #333; width: 100%; margin-top: 5px; border-radius: 2px; overflow: hidden; }
+        .pt-fill { height: 100%; width: 0%; transition: 0.3s; }
+
+        .morality-row { background: #222; padding: 15px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #333; }
+        .morality-bar-bg { height: 10px; background: linear-gradient(90deg, #b71c1c, #fbc02d, #27ae60); border-radius: 5px; margin: 10px 0; position: relative; }
+        .morality-marker { position: absolute; top: -3px; width: 4px; height: 16px; background: white; border: 1px solid black; box-shadow: 0 0 5px black; transition: left 0.3s; }
+        .deed-log { max-height: 100px; overflow-y: auto; font-size: 0.85em; color: #888; border-top: 1px solid #333; margin-top: 10px; padding-top: 5px; }
+        .deed-item { border-bottom: 1px dashed #333; padding: 2px 0; }
+
+        /* --- SLIDE OVER PANEL --- */
+        .detail-panel {
+            position: fixed; top: 0; right: -700px; width: 650px; height: 100%;
+            background: #1e1e26; border-left: 2px solid var(--accent);
+            box-shadow: -10px 0 50px rgba(0,0,0,0.7);
+            transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 100; display: flex; flex-direction: column;
+        }
+        .detail-panel.open { right: 0; }
+        .detail-header { padding: 20px; background: #252530; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .detail-title { font-size: 1.5em; font-weight: bold; color: white; }
+        .detail-tabs { display: flex; background: #15151a; }
+        .detail-tab { flex: 1; padding: 12px; background: none; border: none; color: #888; cursor: pointer; border-bottom: 3px solid transparent; font-weight: bold; text-transform: uppercase; font-size: 0.8em; }
+        .detail-tab.active { color: var(--accent-glow); border-bottom: 3px solid var(--accent); background: #222; }
+        .detail-body { flex: 1; overflow-y: auto; padding: 25px; }
+        .detail-view { display: none; }
+        .detail-view.active { display: block; }
+
+        /* Checklist for Quests */
+        .obj-row { display: flex; align-items: center; margin-bottom: 5px; background: #222; padding: 5px; border-radius: 4px; }
+        .obj-check { transform: scale(1.2); margin-right: 10px; accent-color: var(--success); }
+        .obj-text { flex: 1; background: transparent; border: none; color: #ddd; font-family: inherit; }
+        
+        /* Sub-Locations */
+        .subloc-list { margin-top: 10px; padding-left: 10px; border-left: 2px solid #444; }
+        .subloc-item { padding: 8px; background: #252530; margin-bottom: 5px; cursor: pointer; display:flex; justify-content:space-between; align-items:center; }
+        .subloc-item:hover { background: #333; }
+
+        /* WIKI LINKS */
+        .wiki-link { color: var(--link); text-decoration: underline; cursor: pointer; font-weight: bold; }
+        .wiki-link:hover { background: rgba(79, 195, 247, 0.15); color: #fff; }
+
+        /* MAPS */
+        .map-wrapper { position: relative; width: 100%; height: calc(100vh - 180px); background: #050505; overflow: hidden; border: 1px solid #444; cursor: grab; }
+        .map-wrapper:active { cursor: grabbing; }
+        .map-transform-layer { position: absolute; top: 0; left: 0; transform-origin: 0 0; transition: transform 0.1s ease-out; }
+        .map-img { display: block; pointer-events: none; max-width: none; }
+        .map-pin { position: absolute; width: 24px; height: 24px; background: var(--accent); border: 2px solid #fff; border-radius: 50% 50% 0 50%; transform: rotate(45deg) translate(-50%, -50%); cursor: pointer; z-index: 10; box-shadow: 0 0 10px rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; font-size:10px; color:white; font-weight:bold; }
+        .map-pin:hover { background: var(--success); z-index: 20; scale: 1.2; transition: 0.2s; }
+        .map-pin i { transform: rotate(-45deg); font-style: normal; }
+
+        /* GRAPH */
+        #graph-container { width: 100%; height: calc(100vh - 100px); background: #121212; position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; }
+        
+        /* FILTER BAR */
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 15px; }
+        .filter-sel { background: #222; color: #fff; border: 1px solid #444; padding: 5px; border-radius: 4px; }
+
+    </style>
+</head>
+<body>
+
+    <aside>
+        <div class="brand">HAMLET OMEGA</div>
+        <div class="nav-scroll">
+            <nav id="main-nav">
+                <button class="active" onclick="showSection('dashboard')">📊 Dashboard</button>
+                <button onclick="showSection('weaver')">🕸️ Il Tessitore</button>
+                <button onclick="showSection('maps')">🗺️ Mappe & Pin</button>
+                <button onclick="showSection('heroes')">🦸‍♂️ Eroi (PT & Dati)</button>
+                <button onclick="showSection('morality')">⚖️ Moralità (Compass)</button> 
+                <button onclick="showSection('quests')">📜 Quest & Storia</button>
+                <button onclick="showSection('npcs')">👥 Dramatis Personae</button>
+                <button onclick="showSection('locs')">🏙️ Atlante (Luoghi)</button>
+                <button onclick="showSection('items')">🎒 Inventario & Loot</button>
+                <button onclick="showSection('combat')">🛡️ Combat Tracker</button>
+                <button onclick="showSection('rules')">⚙️ Regole</button>
+                <button onclick="showSection('audio')">🔊 Audio</button>
+                <button onclick="showSection('journal')">📓 Diario</button>
+                <button onclick="showSection('endings')">🎬 Finali</button>
+            </nav>
+            <button class="add-btn" style="width:100%; margin-top:10px; background:#333; border:1px dashed #555;" onclick="addCustomTab()">[+] NUOVA SCHEDA</button>
+        </div>
+        <div class="tools-panel">
+            <button class="tool-btn btn-save" onclick="exportData()">📥 EXPORT BACKUP</button>
+            <button class="tool-btn btn-load" onclick="importData()">📤 IMPORT BACKUP</button>
+            <button class="tool-btn btn-reset" onclick="resetDB()">⚠️ RESET TOTAL</button>
+        </div>
+    </aside>
+
+    <main id="main-area">
+        <section id="dashboard" class="active">
+            <h1>Panoramica</h1>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>🌑 Stato del Cielo</h3>
+                    <div id="sky-status" style="font-size:1.5em; text-align:center; padding:15px; background:black; color:#888; font-weight:bold;">GRIGIO PIOMBO</div>
+                </div>
+                <div class="card">
+                    <h3>🕒 Doomsday Clock</h3>
+                    <div style="background:#333; height:20px; border-radius:10px; margin-top:10px; overflow:hidden;">
+                        <div id="clock-bar" style="width:0%; height:100%; background:var(--c-quest); transition:0.5s;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                        <button onclick="modClock(-1)" style="cursor:pointer;">-</button>
+                        <span id="clock-val">0/12</span>
+                        <button onclick="modClock(1)" style="cursor:pointer;">+</button>
+                    </div>
+                </div>
+            </div>
+            <h2>Note Rapide</h2>
+            <textarea id="main-notes" class="field-input" style="height:250px;" placeholder="Scrivi qui appunti volanti..."></textarea>
+        </section>
+
+        <section id="morality">
+            <h1>Moral Compass <small style="font-size:0.5em; color:#888;">(0 = Bestia, 100 = Santo)</small></h1>
+            <p style="color:#aaa; font-style:italic; margin-bottom:20px;">Traccia l'allineamento morale dinamico basato sulle azioni.</p>
+            <div id="morality-container"></div>
+        </section>
+
+        <section id="weaver">
+            <h1>Mappa Relazionale <small style="font-size:0.5em; color:#888;">(Doppio click per aprire scheda)</small></h1>
+            <div id="graph-container">
+                <canvas id="graph-canvas"></canvas>
+            </div>
+        </section>
+
+        <section id="maps">
+            <h1>Mappe Interattive</h1>
+            <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                <select id="map-select" class="field-input" style="width:auto; margin:0;" onchange="loadMap(this.value)"></select>
+                <button class="add-btn" onclick="addMap()">+ URL</button>
+                <button class="add-btn" style="background:#e91e63" onclick="importLocalImg()">📂 IMG</button>
+                <button class="tool-btn" style="width:auto; margin:0;" onclick="editMapMeta()">Edit</button>
+                <button class="tool-btn" style="width:auto; margin:0; background:#d81b60;" onclick="deleteMap()">Del</button>
+            </div>
+            
+            <div style="color:#888; font-size:0.8em; margin-bottom:5px; display:flex; justify-content:space-between;">
+                <span>Rotella: Zoom | Trascinamento: Pan | Click: Aggiungi Pin | Tasto DX su Pin: Rimuovi</span>
+                <span>Zoom: <span id="zoom-level">100%</span></span>
+            </div>
+
+            <div id="map-wrapper" class="map-wrapper">
+                <div id="map-transform-layer" class="map-transform-layer">
+                    <img id="map-img" class="map-img" src="" alt="Seleziona una mappa">
+                    <div id="map-pins-layer"></div>
+                </div>
+                <div style="position:absolute; bottom:20px; right:20px; display:flex; gap:5px; z-index:100;">
+                    <button class="tool-btn" style="width:30px;" onclick="adjustZoom(0.2)">+</button>
+                    <button class="tool-btn" style="width:30px;" onclick="resetZoom()">⟲</button>
+                    <button class="tool-btn" style="width:30px;" onclick="adjustZoom(-0.2)">-</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="heroes">
+            <h1>Eroi & PT <button class="add-btn" onclick="addItem('heroes')">+ PG</button></h1>
+            <div id="list-heroes" class="grid-2"></div>
+        </section>
+
+        <section id="quests">
+            <h1>Quest Log <button class="add-btn" onclick="addItem('quests')">+ QUEST</button></h1>
+            <div class="filter-bar">
+                <select class="filter-sel" onchange="renderList('quests', this.value)">
+                    <option value="">Tutte</option>
+                    <option value="MAIN">Principali</option>
+                    <option value="SIDE">Secondarie</option>
+                    <option value="FETCH">Fetch / Raccolta</option>
+                    <option value="PERS">Personali</option>
+                </select>
+            </div>
+            <div id="list-quests"></div>
+        </section>
+
+        <section id="npcs">
+            <h1>Dramatis Personae <button class="add-btn" onclick="addItem('npcs')">+ NPC</button></h1>
+            <input type="text" class="field-input" placeholder="🔍 Cerca NPC..." onkeyup="renderList('npcs', this.value)">
+            <div id="list-npcs" class="grid-2" style="margin-top:10px;"></div>
+        </section>
+
+        <section id="locs">
+            <h1>Atlante <button class="add-btn" onclick="addItem('locs')">+ QUARTIERE</button></h1>
+            <p style="color:#888; font-size:0.9em; font-style:italic;">Clicca su un quartiere per vedere i suoi Sotto-Luoghi.</p>
+            <div id="list-locs" class="grid-2"></div>
+        </section>
+
+        <section id="items">
+            <h1>Inventario & Lore <button class="add-btn" onclick="addItem('items')">+ OGGETTO</button></h1>
+            <div id="list-items" class="grid-2"></div>
+        </section>
+
+        <section id="combat">
+            <h1>Combat Tracker <button class="add-btn" onclick="addCombatant()">+ NEMICO</button></h1>
+            <div class="combat-row" style="background:#222; font-weight:bold; display:grid; grid-template-columns:0.5fr 2fr 1fr 1fr 2fr 0.5fr; gap:10px; padding:10px;">
+                <div>Iniz</div><div>Nome</div><div>HP</div><div>Max</div><div>Note</div><div>X</div>
+            </div>
+            <div id="combat-list"></div>
+        </section>
+
+        <section id="rules">
+            <h1>Regole <button class="add-btn" onclick="addItem('rules')">+ REGOLA</button></h1>
+            <div id="list-rules" class="grid-2"></div>
+        </section>
+
+        <section id="audio">
+            <h1>Soundboard</h1>
+            <div class="grid-2">
+                <div class="card">
+                    <a href="https://www.youtube.com/results?search_query=dark+fantasy+city+ambience" target="_blank" style="color:var(--link); display:block; padding:10px;">🌧️ Città Gotica (Generale)</a>
+                    <a href="https://www.youtube.com/results?search_query=industrial+horror+ambience" target="_blank" style="color:var(--link); display:block; padding:10px;">⚙️ Akrotiri / Industrial</a>
+                    <a href="https://www.youtube.com/results?search_query=creepy+orphanage+ambience" target="_blank" style="color:var(--link); display:block; padding:10px;">🧸 Orfanotrofio</a>
+                    <a href="https://www.youtube.com/results?search_query=ethereal+elven+music+sad" target="_blank" style="color:var(--link); display:block; padding:10px;">🍃 Ammída / Triste</a>
+                </div>
+                <div class="card">
+                    <a href="https://www.youtube.com/results?search_query=dark+souls+boss+music" target="_blank" style="color:var(--link); display:block; padding:10px;">⚔️ Boss Fight</a>
+                    <a href="https://www.youtube.com/results?search_query=visceral+horror+sounds" target="_blank" style="color:var(--link); display:block; padding:10px;">🩸 Body Horror</a>
+                    <a href="https://www.youtube.com/results?search_query=clock+ticking+ambience" target="_blank" style="color:var(--link); display:block; padding:10px;">🕰️ Ticking Clock</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="journal">
+            <h1>Diario Sessioni</h1>
+            <input type="text" id="log-title" class="field-input" placeholder="Titolo / Data">
+            <textarea id="log-text" class="field-input" placeholder="Cosa è successo..." style="height:100px;"></textarea>
+            <button class="add-btn" style="width:100%; margin-bottom:20px;" onclick="addLog()">Aggiungi Entry</button>
+            <div id="journal-list"></div>
+        </section>
+
+        <section id="endings">
+            <h1>Finali Possibili</h1>
+            <div id="list-endings"></div>
+        </section>
+
+        <div id="dynamic-sections"></div>
+
+    </main>
+
+    <div id="detail-panel" class="detail-panel">
+        <div class="detail-header">
+            <span id="detail-title" class="detail-title">Dettaglio</span>
+            <button onclick="closeDetail()" style="background:none;border:none;color:#fff;font-size:2em;cursor:pointer;">&times;</button>
+        </div>
+        <div class="detail-tabs">
+            <button class="detail-tab active" onclick="setTab('tab-data')">Dati</button>
+            <button class="detail-tab" onclick="setTab('tab-lore')">Lore & Note</button>
+            <button class="detail-tab" onclick="setTab('tab-dm')">SEGRETI DM</button>
+        </div>
+        <div class="detail-body">
+            <div id="tab-data" class="detail-view active">
+                <div class="form-label">Nome</div>
+                <input type="text" id="inp-name" class="field-input" oninput="updateVal('name', this.value)">
+                
+                <div class="form-label">Tags / Ruolo / Luogo</div>
+                <input type="text" id="inp-tags" class="field-input" oninput="updateVal('tags', this.value)">
+                
+                <div class="form-label">Descrizione Pubblica (Supporta [[Link]])</div>
+                <textarea id="inp-desc" class="field-input" oninput="updateVal('desc', this.value); preview(this.value)"></textarea>
+                <div id="wiki-preview" style="margin-top:5px; font-size:0.9em; color:#888;"></div>
+
+                <div id="quest-objs-area" style="display:none; margin-top:20px; border-top:1px solid #444; padding-top:10px;">
+                    <div class="form-label">Obiettivi Quest</div>
+                    <div id="obj-list"></div>
+                    <button class="add-btn" style="margin-top:5px;" onclick="addObj()">+ Obiettivo</button>
+                    <div class="form-label" style="margin-top:15px;">Prerequisito (ID Quest)</div>
+                    <input type="text" id="inp-req" class="field-input" placeholder="Es. q1" oninput="updateVal('req', this.value)">
+                </div>
+
+                <div id="loc-subs-area" style="display:none; margin-top:20px; border-top:1px solid #444; padding-top:10px;">
+                    <div class="form-label">SOTTO-LUOGHI (Contenuti)</div>
+                    <div id="subloc-list" class="subloc-list"></div>
+                    <button class="add-btn" style="margin-top:5px;" onclick="addSubLoc()">+ Sotto-Area</button>
+                </div>
+            </div>
+            
+            <div id="tab-lore" class="detail-view">
+                <div class="form-label">Estetica / Voce / Atmosfera</div>
+                <textarea id="inp-aest" class="field-input" oninput="updateVal('aest', this.value)"></textarea>
+                
+                <div class="form-label">Quest & Obiettivi Correlati</div>
+                <textarea id="inp-goals" class="field-input" oninput="updateVal('goals', this.value)"></textarea>
+            </div>
+            
+            <div id="tab-dm" class="detail-view">
+                <div class="form-label" style="color:var(--danger)">SEGRETI DEL MASTER (Visibili solo qui)</div>
+                <textarea id="inp-secret" class="field-input" style="background:#2a1a1a; border-color:var(--danger); height:300px;" oninput="updateVal('secret', this.value)"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CHIAVE STORAGE UNICA PER FORZARE L'AGGIORNAMENTO ---
+        const DB_KEY = 'hamlet_atlas_complete_v1';
+
+        // --- DATI COMPLETI DI HAMLET (UNIONE DEI DUE FILE) ---
+        const DEFAULT_DB = {
+            clock: 0,
+            notes: "",
+            heroes: [
+                { id: 'h1', name: "Soul Stitio", tags: "Monaco Aarakocra", desc: "Inviato dal Tempio AlaTempesta.", aest: "Piume grigie, claustrofobico.", goals: "Salvare il Tempio.", secret: "Dovrà scegliere tra il Tempio e Hamlet.", x: 50, y: 50, pt: 0, morality: 50, deeds: [] },
+                { id: 'h2', name: "Noxnara", tags: "Druida Drow", desc: "Immune al sonno. Cerca la Madre Grigia.", aest: "Odora di funghi.", goals: "Studiare il Jolt.", secret: "La sua magia consuma la sua vita.", x: 80, y: 80, pt: 0, morality: 50, deeds: [] },
+                { id: 'h3', name: "TikTak", tags: "Bardo Kenku", desc: "Vuole volare. Imita voci.", aest: "Voce metallica.", goals: "Ali meccaniche.", secret: "Perderà la voce per le ali.", x: 110, y: 110, pt: 0, morality: 50, deeds: [] }
+            ],
+            npcs: [
+                // Top Tier
+                { id: 'n1', name: "Madriach", tags: "Váthos, Boss", desc: "La Balia dell'Orfanotrofio.", aest: "Dolce, materna, inquietante.", secret: "Non uccide i bambini, li congela nel tempo in stasi.", x: 200, y: 200 },
+                { id: 'n2', name: "Sybil", tags: "Váthos, Gang", desc: "Veggente della Cisterna. Odia i [[Nervi]].", aest: "Piange liquido nero.", secret: "È un'elfa corrotta. Beve i ricordi felici.", x: 250, y: 250 },
+                { id: 'n3', name: "Gorran", tags: "Váthos, Alchimista", desc: "Crea il [[Jolt]]. Ha un debole per Noxnara.", aest: "Faccia sciolta.", secret: "Usa midollo spinale dei morti per la droga.", x: 230, y: 280 },
+                { id: 'n4', name: "Ematos", tags: "Emporion, Inquisitore", desc: "Capo Chiesa Haima. Non è un vampiro, ma una bestia corrotta.", aest: "Armatura nera colossale.", secret: "In combat diventa una bestia assetata di sangue.", x: 400, y: 200 },
+                { id: 'n5', name: "Sibirski", tags: "Akrotiri, Duca", desc: "Transumanista.", aest: "90% Macchina.", secret: "Usa pezzi di poveri per ripararsi.", x: 500, y: 100 },
+                { id: 'n6', name: "Lyra", tags: "Ammída, Elfa", desc: "Custode Barriera.", aest: "Consumata dal vento.", secret: "Ha chiuso lei la porta su Genos.", x: 600, y: 200 },
+                { id: 'n7', name: "L'Augure di Dunlain (Valerius)", tags: "Emporion, Guida", desc: "Ancora Temporale. Risponde solo 'Non so dare questa risposta...'", aest: "Sabbia dorata.", secret: "Deve morire per rompere il loop.", x: 450, y: 250 },
+                { id: 'n8', name: "Nervi", tags: "Váthos, Gang", desc: "Capo del Macello.", aest: "Braccio scorticato.", secret: "Tiene Gorran in ostaggio.", x: 280, y: 300 },
+                { id: 'n9', name: "Aris lo Scrivano", tags: "Emporion, Lore", desc: "Cieco, conosce la storia.", aest: "Vecchio, mani macchiate d'inchiostro.", secret: "Ha trascritto il rituale originale.", x: 420, y: 280 },
+                { id: 'n10', name: "Padre Elian", tags: "Váthos, Alleato", desc: "Custode Cripta Silente.", aest: "Gobbo, placche ossee.", secret: "È infetto ma resiste.", x: 220, y: 360 },
+                { id: 'n11', name: "Dr. Vane", tags: "Akrotiri, Chirurgo", desc: "Folle, offre potenziamenti.", aest: "Camice sporco di olio.", secret: "Vuole sostituire gli organi di TikTak.", x: 520, y: 80 }
+            ],
+            locs: [
+                // Top Level
+                { id: 'l1', name: "Váthos", tags: "Quartiere", desc: "Il ventre molle. Fango e Gang.", aest: "Puzza di zolfo.", secret: "", x: 200, y: 300, parent:null },
+                { id: 'l2', name: "Emporion", tags: "Quartiere", desc: "Mercato e Chiesa.", aest: "Ticchettio orologi.", secret: "", x: 400, y: 300, parent:null },
+                { id: 'l3', name: "Ammída", tags: "Quartiere", desc: "Baluardo Elfico.", aest: "Vento costante.", secret: "", x: 600, y: 300, parent:null },
+                { id: 'l4', name: "Akrotiri", tags: "Quartiere", desc: "Città Alta.", aest: "Vapore e metallo.", secret: "", x: 500, y: 50, parent:null },
+                
+                // Subs (Vathos)
+                { id: 'l1a', name: "Orfanotrofio", tags: "Luogo", desc: "Base di [[Madriach]].", parent:'l1', secret:"Laboratorio sotto." },
+                { id: 'l1b', name: "Cripta Silente", tags: "Luogo", desc: "Rifugio di Elian.", parent:'l1', secret:"Acchiappasogni." },
+                { id: 'l1c', name: "Macello", tags: "Gang", desc: "Territorio Nervi.", parent:'l1', secret:"" },
+                { id: 'l1d', name: "Cisterna", tags: "Gang", desc: "Territorio Lacrimali.", parent:'l1', secret:"" },
+                { id: 'l1e', name: "Lab Gorran", tags: "Luogo", desc: "Cantina allagata.", parent:'l1', secret:"" },
+
+                // Subs (Emporion)
+                { id: 'l2a', name: "Torre Orologio", tags: "Luogo", desc: "Casa dell'Augure. Orologio fermo alle 23:59.", parent:'l2', secret:"" },
+                { id: 'l2b', name: "Cattedrale Haima", tags: "Luogo", desc: "Base Ematos.", parent:'l2', secret:"Prigioni del sangue." },
+                { id: 'l2c', name: "Libreria Proibita", tags: "Luogo", desc: "Bruciata.", parent:'l2', secret:"" },
+
+                // Subs (Akrotiri)
+                { id: 'l4a', name: "Palazzo Ducale", tags: "Luogo", desc: "Base Sibirski.", parent:'l4', secret:"" },
+                { id: 'l4b', name: "Clinica Vane", tags: "Luogo", desc: "Chirurgia.", parent:'l4', secret:"" },
+                { id: 'l4c', name: "Miniere Profonde", tags: "Dungeon", desc: "Forni e Funghi.", parent:'l4', secret:"Madre Grigia." }
+            ],
+            quests: [
+                // MAIN
+                { id: 'q1', name: "Prologo: Otherton", tags: "MAIN", desc: "Entrare a Hamlet.", completed: true, objs: [{txt:"Ottenere Pietra", done:true}], req: null },
+                { id: 'q2', name: "Atto I: Ninna Nanna", tags: "MAIN", desc: "Affrontare [[Madriach]] a [[Váthos]].", completed: false, objs: [{txt:"Entrare Orfanotrofio", done:false}, {txt:"Prendere Pietra Riposo", done:false}], req: 'q1' },
+                { id: 'q3', name: "Atto II: Ritmo del Tempo", tags: "MAIN", desc: "Trovare l'[[Augure]] a [[Emporion]].", completed: false, objs: [{txt:"Scalare Torre", done:false}, {txt:"Parlare Augure", done:false}], req: 'q2' },
+                { id: 'q4', name: "Atto IIb: Sangue dei Santi", tags: "MAIN", desc: "Affrontare [[Ematos]].", completed: false, objs: [{txt:"Entrare Cattedrale", done:false}, {txt:"Prendere Pietra Icore", done:false}], req: 'q3' },
+                { id: 'q5', name: "Atto IIc: Lamento del Vento", tags: "MAIN", desc: "Affrontare [[Lyra]].", completed: false, objs: [{txt:"Superare Barricate", done:false}, {txt:"Prendere Pietra Vento", done:false}], req: 'q3' },
+                { id: 'q6', name: "Atto III: Logica del Ferro", tags: "MAIN", desc: "Affrontare [[Sibirski]].", completed: false, objs: [{txt:"Salire Akrotiri", done:false}, {txt:"Prendere Pietra Crisalide", done:false}], req: 'q4' }, 
+                { id: 'q7', name: "Finale: Il Sigillo", tags: "MAIN", desc: "Aprire la porta.", completed: false, objs: [{txt:"Inserire 4 Pietre", done:false}], req: 'q6' },
+
+                // SIDE & FETCH
+                { id: 's1', name: "Il Rifugio Silente", tags: "SIDE", desc: "Trovare un posto sicuro.", completed: false, objs: [{txt:"Trovare simbolo", done:false}, {txt:"Entrare Cripta", done:false}], req: 'q1' },
+                { id: 's2', name: "Guerra Chimica", tags: "SIDE", desc: "Aiutare [[Sybil]] o [[Nervi]].", completed: false, objs: [{txt:"Scegliere fazione", done:false}, {txt:"Sabotare nemico", done:false}], req: 'q1' },
+                { id: 'f1', name: "Fetch: Libro Favole", tags: "FETCH", desc: "Per decifrare la lore.", completed: false, objs: [{txt:"Trova in Orfanotrofio", done:false}], req: 'q1' },
+                { id: 'f2', name: "Fetch: Tomo Storico", tags: "FETCH", desc: "Per capire il rituale.", completed: false, objs: [{txt:"Trova in Libreria", done:false}], req: 'q3' },
+                { id: 'f3', name: "Fetch: Diario Valerius", tags: "FETCH", desc: "Per capire Sibirski.", completed: false, objs: [{txt:"Trova Miniere", done:false}], req: 'q3' },
+
+                // PERSONAL
+                { id: 'p1', name: "Noxnara: Giardino", tags: "PERS", desc: "Trovare la Madre Grigia.", completed: false, objs: [{txt:"Analisi Jolt", done:false}, {txt:"Scendere Miniere", done:false}], req: 'q1' },
+                { id: 'p2', name: "TikTak: Ali di Icaro", tags: "PERS", desc: "Farsi operare dal Dottore.", completed: false, objs: [{txt:"Trovare Dr Vane", done:false}, {txt:"Pagare con Voce", done:false}], req: 'q3' },
+                { id: 'p3', name: "Soul: Il Dilemma", tags: "PERS", desc: "Scegliere destino.", completed: false, objs: [{txt:"Contattare Tempio", done:false}], req: 'q3' }
+            ],
+            items: [
+                { id: 'i1', name: "Jolt", tags: "Consumabile", desc: "+3 PT. Rischio dipendenza.", secret: "Fatto di morti." },
+                { id: 'i2', name: "Pietra del Passaggio", tags: "Key", desc: "Apre il Miasma.", secret: "" },
+                { id: 'i3', name: "Pietra Riposo", tags: "Key", desc: "Di Madriach.", secret: "" },
+                { id: 'i4', name: "Pietra Icore", tags: "Key", desc: "Di Ematos.", secret: "" },
+                { id: 'i5', name: "Pietra Vento", tags: "Key", desc: "Di Lyra.", secret: "" },
+                { id: 'i6', name: "Pietra Crisalide", tags: "Key", desc: "Di Sibirski.", secret: "" }
+            ],
+            rules: [
+                { id: 'r1', name: "Dado Terrore", tags: "Core", desc: "1=Sogno, 20=Eroico.", secret: "" },
+                { id: 'r2', name: "Tratto: Gazza", tags: "Reputazione", desc: "Svantaggio con onesti, Vantaggio con criminali." },
+                { id: 'r3', name: "Valerius Trigger", tags: "Interazione", desc: "Non risponde a domande sul futuro." }
+            ],
+            endings: [
+                { id: 'e1', name: "Finale A", tags: "Bad", desc: "Fuga. Il mondo muore.", secret: "" },
+                { id: 'e2', name: "Finale B", tags: "Neutral", desc: "Loop Temporale.", secret: "" },
+                { id: 'e3', name: "Finale C", tags: "True", desc: "Uccidere Augure. Sole.", secret: "" }
+            ],
+            journal: [],
+            combat: [],
+            maps: [{ id: 'm1', name: "Mappa Hamlet (Placeholder)", url: "https://via.placeholder.com/800x600?text=Mappa+Hamlet", pins: [] }],
+            customTabs: [] 
+        };
+
+        let db = JSON.parse(localStorage.getItem(DB_KEY)) || DEFAULT_DB;
+        let editCtx = null;
+        let currentMapIdx = 0;
+
+        // --- INIT ---
+        function init() {
+            try {
+                if(!db.maps) db.maps = DEFAULT_DB.maps;
+                if(!db.customTabs) db.customTabs = [];
+                // Migrate Heroes
+                db.heroes.forEach(h => {
+                    if(h.pt === undefined) h.pt = 0;
+                    if(h.morality === undefined) h.morality = 50;
+                    if(!h.deeds) h.deeds = [];
+                });
+
+                document.getElementById('main-notes').value = db.notes || "";
+                document.getElementById('main-notes').addEventListener('input', e => { db.notes=e.target.value; save(); });
+                
+                renderAll();
+                initGraph();
+                updateClockDisplay();
+                updateMapList();
+                renderCustomTabs(); 
+            } catch (e) { console.error(e); alert("Errore Init: " + e.message); }
+        }
+
+        function save() {
+            try { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+            catch (e) { alert("Memoria Piena! Usa URL per le mappe."); }
+        }
+
+        function resetDB() {
+            if(confirm("ATTENZIONE: Questo cancellerà tutti i dati e ripristinerà il database predefinito di Hamlet (Valerius, Ematos, ecc). Continuare?")) { localStorage.removeItem(DB_KEY); location.reload(); }
+        }
+
+        // --- MAPS ENGINE ---
+        let mapTransform = { scale: 1, x: 0, y: 0 };
+        let isDragging = false, startPanX = 0, startPanY = 0;
+
+        function updateMapTransform() {
+            document.getElementById('map-transform-layer').style.transform = `translate(${mapTransform.x}px, ${mapTransform.y}px) scale(${mapTransform.scale})`;
+            document.getElementById('zoom-level').innerText = Math.round(mapTransform.scale * 100) + '%';
+        }
+        function adjustZoom(delta) {
+            mapTransform.scale = Math.max(0.2, Math.min(5, mapTransform.scale + delta));
+            updateMapTransform();
+        }
+        function resetZoom() { mapTransform = { scale: 1, x: 0, y: 0 }; updateMapTransform(); }
+
+        document.getElementById('map-wrapper').addEventListener('wheel', e => { e.preventDefault(); adjustZoom(e.deltaY > 0 ? -0.1 : 0.1); });
+        
+        const mw = document.getElementById('map-wrapper');
+        mw.addEventListener('mousedown', e => {
+            if (e.target.closest('.map-pin') || e.target.tagName === 'BUTTON') return;
+            isDragging = true; startPanX = e.clientX - mapTransform.x; startPanY = e.clientY - mapTransform.y;
+            mw.style.cursor = 'grabbing';
+        });
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            e.preventDefault(); mapTransform.x = e.clientX - startPanX; mapTransform.y = e.clientY - startPanY;
+            updateMapTransform();
+        });
+        window.addEventListener('mouseup', () => { isDragging = false; mw.style.cursor = 'grab'; });
+
+        // --- MAPS LOGIC ---
+        function addMap() {
+            const url = prompt("URL Immagine:");
+            if(url) { db.maps.push({ id: 'm'+Date.now(), name: "Nuova Mappa", url: url, pins: [] }); save(); updateMapList(); loadMap(db.maps.length-1); }
+        }
+        function importLocalImg() {
+            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if(file.size > 500000 && !confirm("File grande. Continuare?")) return;
+                const r = new FileReader();
+                r.onload = ev => { db.maps.push({ id: 'm'+Date.now(), name: file.name, url: ev.target.result, pins: [] }); save(); updateMapList(); loadMap(db.maps.length-1); };
+                r.readAsDataURL(file);
+            };
+            input.click();
+        }
+        function updateMapList() {
+            const sel = document.getElementById('map-select');
+            sel.innerHTML = db.maps.map((m, i) => `<option value="${i}">${m.name}</option>`).join('');
+            if(db.maps.length > 0) loadMap(currentMapIdx < db.maps.length ? currentMapIdx : 0);
+        }
+        function loadMap(idx) {
+            currentMapIdx = idx;
+            if(db.maps[idx]) { document.getElementById('map-img').src = db.maps[idx].url; resetZoom(); renderPins(); }
+        }
+        function renderPins() {
+            const m = db.maps[currentMapIdx];
+            const layer = document.getElementById('map-pins-layer');
+            layer.innerHTML = "";
+            m.pins.forEach((p, i) => {
+                const el = document.createElement('div'); el.className = 'map-pin';
+                el.style.left = p.x + '%'; el.style.top = p.y + '%';
+                el.innerHTML = '<i>📍</i>'; el.title = p.label;
+                el.onclick = (e) => { e.stopPropagation(); openDetail(p.linkType, p.linkIdx); };
+                el.oncontextmenu = (e) => { e.preventDefault(); if(confirm("Rimuovi Pin?")) { m.pins.splice(i,1); save(); renderPins(); } };
+                layer.appendChild(el);
+            });
+        }
+        function editMapMeta() {
+            const m = db.maps[currentMapIdx];
+            const n = prompt("Nome:", m.name); if(n) m.name = n;
+            save(); updateMapList();
+        }
+        function deleteMap() { if(confirm("Elimina mappa?")) { db.maps.splice(currentMapIdx,1); currentMapIdx=0; save(); updateMapList(); } }
+        
+        document.getElementById('map-transform-layer').addEventListener('click', function(e) {
+            if(e.target.closest('.map-pin')) return;
+            const rect = document.getElementById('map-img').getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            const typeMap = {'n':'npcs','l':'locs','q':'quests','i':'items'};
+            const typeIn = prompt("Link (n=NPC, l=Loc, q=Quest, i=Item):").toLowerCase();
+            const type = typeMap[typeIn];
+            if(type) {
+                const name = prompt("Nome elemento:");
+                const idx = db[type].findIndex(x => x.name.toLowerCase().includes(name.toLowerCase()));
+                if(idx !== -1) {
+                    db.maps[currentMapIdx].pins.push({x, y, linkType: type, linkIdx: idx, label: db[type][idx].name});
+                    save(); renderPins();
+                } else alert("Non trovato.");
+            }
+        });
+
+        // --- CUSTOM TABS LOGIC ---
+        function addCustomTab() {
+            const name = prompt("Nome della Nuova Scheda:");
+            if(name) {
+                const id = 'tab_' + Date.now();
+                db.customTabs.push({ id: id, name: name, content: "" });
+                save(); renderCustomTabs(); showSection(id);
+            }
+        }
+        function renderCustomTabs() {
+            document.querySelectorAll('.custom-nav-btn').forEach(e => e.remove());
+            document.querySelectorAll('.custom-section').forEach(e => e.remove());
+
+            const nav = document.getElementById('main-nav');
+            const main = document.getElementById('main-area');
+
+            db.customTabs.forEach((tab, index) => {
+                // Nav Button
+                const btn = document.createElement('button');
+                btn.className = 'custom-nav-btn';
+                btn.innerHTML = `📄 ${tab.name} <span class="del-tab-btn" onclick="deleteCustomTab(${index}); event.stopPropagation();">🗑️</span>`;
+                btn.onclick = () => showSection(tab.id);
+                nav.appendChild(btn);
+
+                // Section Content
+                const sec = document.createElement('section');
+                sec.id = tab.id;
+                sec.className = 'custom-section';
+                sec.innerHTML = `
+                    <h1>${tab.name}</h1>
+                    <textarea class="field-input" style="height:calc(100vh - 150px); font-family:monospace;" oninput="updateCustomTab(${index}, this.value)">${tab.content}</textarea>
+                `;
+                main.appendChild(sec);
+            });
+        }
+        function updateCustomTab(idx, val) { db.customTabs[idx].content = val; save(); }
+        function deleteCustomTab(idx) {
+            if(confirm("Eliminare questa scheda e tutto il suo contenuto?")) {
+                db.customTabs.splice(idx, 1);
+                save(); renderCustomTabs(); showSection('dashboard');
+            }
+        }
+
+        // --- MORALITY TRACKER LOGIC ---
+        function renderMorality() {
+            const div = document.getElementById('morality-container');
+            div.innerHTML = db.heroes.map((h, i) => {
+                const color = h.morality > 70 ? '#27ae60' : h.morality < 30 ? '#c0392b' : '#f1c40f';
+                return `
+                <div class="morality-row">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>${h.name}</h3>
+                        <strong style="color:${color}; font-size:1.2em;">${h.morality}</strong>
+                    </div>
+                    <div class="morality-bar-bg">
+                        <div class="morality-marker" style="left:${h.morality}%;"></div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="tool-btn" onclick="modMorality(${i}, -5)">-5 (Male)</button>
+                        <button class="tool-btn" onclick="modMorality(${i}, 5)">+5 (Bene)</button>
+                        <button class="tool-btn" style="background:#444;" onclick="addDeed(${i})">Aggiungi Atto</button>
+                    </div>
+                    <div class="deed-log">
+                        ${h.deeds.map(d => `<div class="deed-item">${d}</div>`).join('')}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        function modMorality(idx, val) {
+            db.heroes[idx].morality = Math.max(0, Math.min(100, db.heroes[idx].morality + val));
+            save(); renderMorality();
+        }
+        function addDeed(idx) {
+            const txt = prompt("Descrivi l'atto compiuto:");
+            if(txt) {
+                db.heroes[idx].deeds.unshift(`[${new Date().toLocaleTimeString()}] ${txt}`);
+                save(); renderMorality();
+            }
+        }
+
+        // --- HEROES LIST RENDERER ---
+        function renderHeroesList() {
+            const c = document.getElementById('list-heroes');
+            if(!c) return;
+            c.innerHTML = db.heroes.map((h, i) => {
+                let ptColor = '#2e7d32'; 
+                if(h.pt > 3) ptColor = '#fbc02d'; 
+                if(h.pt > 7) ptColor = '#c62828'; 
+
+                return `
+                <div class="card clickable" data-type="heroes" onclick="openDetail('heroes', ${i})">
+                    <span class="tag tag-hero">${h.tags}</span>
+                    <strong style="font-size:1.1em;">${h.name}</strong>
+                    <div style="font-size:0.9em; color:#bbb; margin:5px 0;">${parseWiki(h.desc)}</div>
+                    
+                    <div class="pt-controls" onclick="event.stopPropagation()">
+                        <span style="font-size:0.8em; color:#888;">TENSIONE:</span>
+                        <button class="pt-btn" onclick="modPT(${i}, -1)">-</button>
+                        <span class="pt-val" style="color:${ptColor}">${h.pt}</span>
+                        <button class="pt-btn" onclick="modPT(${i}, 1)">+</button>
+                    </div>
+                    <div class="pt-bar"><div class="pt-fill" style="width:${Math.min(100, h.pt*10)}%; background:${ptColor};"></div></div>
+
+                    <button class="del-btn" style="margin-top:5px;" onclick="delItem('heroes', ${i}); event.stopPropagation();">🗑️</button>
+                </div>`;
+            }).join('');
+        }
+        function modPT(idx, val) {
+            db.heroes[idx].pt = Math.max(0, db.heroes[idx].pt + val);
+            save(); renderHeroesList();
+        }
+
+        // --- RENDERERS GENERICI ---
+        function renderAll() {
+            renderHeroesList();
+            renderList('npcs'); renderList('locs'); renderList('quests'); renderList('items'); renderList('rules'); renderList('endings');
+            renderJournal(); renderCombat(); renderMorality();
+        }
+
+        function renderList(type, filter="") {
+            const container = document.getElementById('list-'+type);
+            if(!container) return;
+            container.innerHTML = db[type].map((item, i) => {
+                if(filter && !JSON.stringify(item).toLowerCase().includes(filter.toLowerCase())) return '';
+                if(type === 'locs' && item.parent) return ''; 
+                let lockedClass = ""; let completedClass = "";
+                if(type === 'quests') {
+                    if(item.req) {
+                        const parent = db.quests.find(q => q.id === item.req);
+                        if(parent && !parent.completed) lockedClass = "locked";
+                    }
+                    if(item.completed) completedClass = "completed";
+                }
+                return `
+                <div class="card clickable ${lockedClass} ${completedClass}" data-type="${type}" onclick="openDetail('${type}', ${i})">
+                    <span class="tag tag-${type}">${item.tags || type}</span>
+                    <strong style="font-size:1.1em;">${item.name}</strong>
+                    <div style="font-size:0.9em; color:#bbb; margin-top:5px;">${parseWiki(item.desc)}</div>
+                    <button class="del-btn" onclick="delItem('${type}', ${i}); event.stopPropagation();">🗑️</button>
+                </div>`;
+            }).join('');
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('section, .custom-section').forEach(s => s.classList.remove('active'));
+            const el = document.getElementById(id);
+            if(el) el.classList.add('active');
+            
+            document.querySelectorAll('nav button, .custom-nav-btn').forEach(b => b.classList.remove('active'));
+            // Highlight active button
+            const activeBtn = Array.from(document.querySelectorAll('nav button, .custom-nav-btn')).find(b => b.getAttribute('onclick')?.includes(id));
+            if(activeBtn) activeBtn.classList.add('active');
+            
+            if(id==='weaver') resizeCanvas();
+        }
+
+        function addItem(type) {
+            const id = type[0] + Date.now();
+            db[type].push({ id: id, name: "Nuovo", tags: "", desc: "", aest: "", secret: "", x:100, y:100, objs:[], completed:false, parent:null, pt:0, morality:50, deeds:[] });
+            save(); renderAll(); openDetail(type, db[type].length-1);
+        }
+        function delItem(type, idx) { if(confirm("Eliminare?")) { db[type].splice(idx,1); save(); renderAll(); } }
+        
+        function openDetail(type, index) {
+            editCtx = { type, index };
+            const item = db[type][index];
+            document.getElementById('detail-title').innerText = item.name;
+            const set = (id, k) => document.getElementById(id).value = item[k] || "";
+            set('inp-name', 'name'); set('inp-tags', 'tags'); set('inp-desc', 'desc');
+            set('inp-aest', 'aest'); set('inp-goals', 'goals'); set('inp-secret', 'secret');
+            document.getElementById('quest-objs-area').style.display = (type === 'quests') ? 'block' : 'none';
+            document.getElementById('loc-subs-area').style.display = (type === 'locs') ? 'block' : 'none';
+            if(type === 'quests') { set('inp-req', 'req'); renderObjs(); }
+            if(type === 'locs') { renderSubs(); }
+            preview(item.desc || "");
+            document.getElementById('detail-panel').classList.add('open');
+            setTab('tab-data');
+        }
+        function closeDetail() { document.getElementById('detail-panel').classList.remove('open'); editCtx = null; renderAll(); }
+        function setTab(id) { document.querySelectorAll('.detail-view').forEach(v => v.classList.remove('active')); document.getElementById(id).classList.add('active'); document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active')); event.target.classList.add('active'); }
+        function updateVal(key, val) { if(editCtx) { db[editCtx.type][editCtx.index][key] = val; if(key==='name') document.getElementById('detail-title').innerText = val; save(); } }
+        
+        function renderSubs() {
+            const list = document.getElementById('subloc-list'); const parentId = db.locs[editCtx.index].id;
+            const children = db.locs.filter(l => l.parent === parentId);
+            list.innerHTML = children.map(c => { const idx = db.locs.indexOf(c); return `<div class="subloc-item" onclick="closeDetail(); setTimeout(()=>openDetail('locs',${idx}), 200)"><span>↳ ${c.name}</span> <span style="font-size:0.8em; color:#888;">${c.tags}</span></div>`; }).join('');
+        }
+        function addSubLoc() { const parentId = db.locs[editCtx.index].id; const newId = 'l' + Date.now(); db.locs.push({ id: newId, name: "Nuova Area", tags: "Sub", desc: "", parent: parentId, secret:"" }); save(); renderSubs(); }
+        
+        function renderObjs() {
+            const list = document.getElementById('obj-list'); const item = db[editCtx.type][editCtx.index]; list.innerHTML = ""; if(!item.objs) item.objs = [];
+            item.objs.forEach((o, i) => { list.innerHTML += `<div class="obj-row"><input type="checkbox" class="obj-check" ${o.done?'checked':''} onchange="toggleObj(${i})"><input type="text" class="obj-text" value="${o.txt}" oninput="updateObj(${i}, this.value)"><button class="del-btn" onclick="delObj(${i})" style="width:auto; float:none; margin:0;">x</button></div>`; });
+        }
+        function addObj() { db[editCtx.type][editCtx.index].objs.push({txt:"Nuovo...", done:false}); save(); renderObjs(); }
+        function toggleObj(i) { const item = db[editCtx.type][editCtx.index]; item.objs[i].done = !item.objs[i].done; item.completed = item.objs.every(o => o.done) && item.objs.length > 0; save(); renderObjs(); }
+        function updateObj(i, v) { db[editCtx.type][editCtx.index].objs[i].txt = v; save(); }
+        function delObj(i) { db[editCtx.type][editCtx.index].objs.splice(i,1); save(); renderObjs(); }
+
+        function parseWiki(text) { if(!text) return ""; return text.replace(/\[\[(.*?)\]\]/g, (match, p1) => `<span class="wiki-link" onclick="event.stopPropagation(); openWiki('${p1}')">${p1}</span>`); }
+        function preview(text) { document.getElementById('wiki-preview').innerHTML = parseWiki(text); }
+        function openWiki(name) { const types = ['npcs', 'locs', 'quests', 'items', 'heroes']; for(let t of types) { let idx = db[t].findIndex(x => x.name.toLowerCase() === name.toLowerCase()); if(idx !== -1) return openDetail(t, idx); } alert("Voce non trovata: " + name); }
+        function modClock(v) { db.clock = Math.max(0, Math.min(12, db.clock + v)); updateClockDisplay(); save(); }
+        function updateClockDisplay() { 
+            const pct = (db.clock / 12) * 100; 
+            document.getElementById('clock-bar').style.width = pct + '%'; 
+            document.getElementById('clock-val').innerText = db.clock + '/12';
+            const skies = ["Grigio Piombo", "Vento Elettrico", "Pioggia Nera", "Nebbia Rossa", "LUNA PALLIDA"];
+            const stage = Math.floor(db.clock / 3);
+            const skyDiv = document.getElementById('sky-status');
+            skyDiv.innerText = skies[stage] || "Incubo";
+            skyDiv.style.color = stage >= 4 ? 'white' : '#888';
+        }
+        
+        // EXPORT/IMPORT
+        function exportData() { const d = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); const a = document.createElement('a'); a.href=d; a.download="Hamlet_Backup.json"; a.click(); }
+        function importData() { const i = document.createElement('input'); i.type='file'; i.onchange=e=>{ const r=new FileReader(); r.onload=ev=>{ try{ db=JSON.parse(ev.target.result); save(); location.reload(); }catch(x){alert('Errore File');} }; r.readAsText(e.target.files[0]); }; i.click(); }
+
+        // GRAPH
+        const cvs = document.getElementById('graph-canvas'); const ctx = cvs.getContext('2d'); let dragNode = null;
+        function initGraph() { resizeCanvas(); window.addEventListener('resize', resizeCanvas); cvs.addEventListener('mousedown', e => { const n=getNodeAt(e.offsetX,e.offsetY); if(n) dragNode=n; }); cvs.addEventListener('mousemove', e => { if(dragNode) { db[dragNode.type][dragNode.idx].x=e.offsetX; db[dragNode.type][dragNode.idx].y=e.offsetY; } }); cvs.addEventListener('mouseup', ()=>{if(dragNode){dragNode=null;save();}}); cvs.addEventListener('dblclick', e=>{const n=getNodeAt(e.offsetX,e.offsetY); if(n) openDetail(n.type,n.idx);}); requestAnimationFrame(drawGraph); }
+        function resizeCanvas() { cvs.width = document.getElementById('graph-container').clientWidth; cvs.height = document.getElementById('graph-container').clientHeight; }
+        function getNodes() { return [...db.npcs.map((x,i)=>({...x,type:'npcs',idx:i,col:'var(--c-npc)'})), ...db.locs.map((x,i)=>({...x,type:'locs',idx:i,col:'var(--c-loc)'})), ...db.quests.map((x,i)=>({...x,type:'quests',idx:i,col:'var(--c-quest)'}))]; }
+        function getNodeAt(x, y) { return getNodes().find(n => Math.hypot((n.x||100)-x, (n.y||100)-y) < 20); }
+        function drawGraph() { 
+            ctx.clearRect(0,0,cvs.width,cvs.height); 
+            const nodes=getNodes(); 
+            ctx.strokeStyle='#444'; ctx.lineWidth=1; 
+            
+            // Draw Links
+            db.quests.forEach(q=>{if(q.req){const p=db.quests.find(x=>x.id===q.req); if(p){ctx.beginPath();ctx.moveTo(q.x||100,q.y||100);ctx.lineTo(p.x||100,p.y||100);ctx.strokeStyle='#d32f2f';ctx.stroke();}}}); 
+            db.locs.forEach(l=>{if(l.parent){const p=db.locs.find(x=>x.id===l.parent); if(p){ctx.beginPath();ctx.moveTo(l.x||100,l.y||100);ctx.lineTo(p.x||100,p.y||100);ctx.strokeStyle='#5d4037';ctx.stroke();}}});
+
+            nodes.forEach(n=>{
+                ctx.beginPath();ctx.arc(n.x||100,n.y||100,15,0,Math.PI*2);ctx.fillStyle=n.col;ctx.fill();
+                ctx.fillStyle='#ccc';ctx.font='10px Arial';ctx.textAlign='center';ctx.fillText(n.name,n.x||100,(n.y||100)+25);
+            }); 
+            requestAnimationFrame(drawGraph); 
+        }
+
+        // COMBAT & JOURNAL
+        function addCombatant() { db.combat.push({init:10, name:"Nemico", hp:10, max:10}); save(); renderCombat(); }
+        function renderCombat() { document.getElementById('combat-list').innerHTML = db.combat.map((c,i) => `<div class="combat-row"><input type="number" class="field-input" value="${c.init}" onchange="db.combat[${i}].init=this.value; save()"><input type="text" class="field-input" value="${c.name}" onchange="db.combat[${i}].name=this.value; save()"><input type="number" class="field-input" value="${c.hp}" onchange="db.combat[${i}].hp=this.value; save()"><input type="number" class="field-input" value="${c.max}" onchange="db.combat[${i}].max=this.value; save()"><input type="text" class="field-input" placeholder="Note"><button class="del-btn" onclick="db.combat.splice(${i},1); save(); renderCombat()">X</button></div>`).join(''); }
+        function addLog() { const t=document.getElementById('log-title').value; const b=document.getElementById('log-text').value; if(t){ db.journal.unshift({title:t, body:b, date:new Date().toLocaleDateString()}); save(); renderJournal(); document.getElementById('log-text').value=""; } }
+        function renderJournal() { document.getElementById('journal-list').innerHTML = db.journal.map(j => `<div class="card"><small style="color:var(--accent)">${j.date}</small><strong>${j.title}</strong><p>${j.body}</p></div>`).join(''); }
+
+        init();
+    </script>
+</body>
+</html>
